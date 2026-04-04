@@ -1,4 +1,7 @@
 import { motion } from "framer-motion";
+
+import { useLanguage } from "@/context/LanguageContext";
+import { useTelemetry } from "@/context/TelemetryContext";
 import { platformLogos } from "@/data/platformLogos";
 import type { Product } from "@/data/products";
 
@@ -9,7 +12,11 @@ interface PlatformCardProps {
 }
 
 const PlatformCard = ({ product, index, onViewPlans }: PlatformCardProps) => {
+  const { isArabic, t } = useLanguage();
+  const { trackEvent } = useTelemetry();
   const logoUrl = platformLogos[product.id];
+  const planText = product.plans.length > 1 ? t("cards.plansAvailable") : t("cards.planAvailable");
+  const description = isArabic && product.descriptionAr ? product.descriptionAr : product.description;
 
   return (
     <motion.div
@@ -18,8 +25,18 @@ const PlatformCard = ({ product, index, onViewPlans }: PlatformCardProps) => {
       transition={{ duration: 0.45, delay: index * 0.06 }}
       whileHover={{ y: -6, scale: 1.01 }}
       whileTap={{ scale: 0.985 }}
-      onClick={() => onViewPlans(product)}
-      className="glass gradient-border group flex min-w-0 cursor-pointer flex-col items-center gap-3 rounded-2xl p-4 transition-all duration-300 hover:orange-glow sm:gap-4 sm:p-6"
+      onClick={() => {
+        trackEvent({
+          eventType: "product_click",
+          eventLabel: `Product Click: ${product.name}`,
+          metadata: {
+            productId: product.id,
+            productName: product.name,
+          },
+        });
+        onViewPlans(product);
+      }}
+      className="glass gradient-border group flex min-w-0 cursor-pointer flex-col items-center gap-3 rounded-2xl p-4 text-center transition-all duration-300 hover:orange-glow sm:gap-4 sm:p-6"
     >
       <div className="flex min-h-[72px] items-center justify-center sm:min-h-[88px]">
         {logoUrl ? (
@@ -42,12 +59,12 @@ const PlatformCard = ({ product, index, onViewPlans }: PlatformCardProps) => {
           {product.name}
         </h3>
         <p className="max-w-full text-[13px] leading-5 text-muted-foreground sm:text-sm">
-          {product.description}
+          {description}
         </p>
       </div>
 
       <span className="text-[11px] text-muted-foreground sm:text-xs">
-        {product.plans.length} plan{product.plans.length > 1 ? "s" : ""} available
+        {product.plans.length} {planText}
       </span>
 
       <motion.button
@@ -55,7 +72,7 @@ const PlatformCard = ({ product, index, onViewPlans }: PlatformCardProps) => {
         whileTap={{ scale: 0.97 }}
         className="btn-primary mt-auto w-full rounded-lg px-5 py-3 text-sm font-semibold text-primary-foreground"
       >
-        View Plans
+        {t("cards.viewPlans")}
       </motion.button>
     </motion.div>
   );

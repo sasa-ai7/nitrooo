@@ -1,19 +1,13 @@
 import { motion } from "framer-motion";
 import { Sparkles, Zap } from "lucide-react";
 
-const promoItems = [
-  "50% OFF",
-  "Limited Time Offer",
-  "Special Deal",
-  "More Offers",
-  "Premium AI Access",
-  "Choose Your Plan",
-  "Click to Explore",
-];
-
-const marqueeItems = [...promoItems, ...promoItems, ...promoItems];
+import { useLanguage } from "@/context/LanguageContext";
 
 const PromoBanner = () => {
+  const { t, tList } = useLanguage();
+  const promoItems = tList("promoBanner.items");
+  const marqueeItems = [...promoItems, ...promoItems, ...promoItems];
+
   const handleClick = () => {
     document.getElementById("platforms")?.scrollIntoView({
       behavior: "smooth",
@@ -31,12 +25,12 @@ const PromoBanner = () => {
       whileHover={{ y: -1 }}
       whileTap={{ scale: 0.995 }}
       className="w-full cursor-pointer px-4 pt-2.5 sm:px-6 sm:pt-3"
-      aria-label="Explore AI platform plans"
+      aria-label={t("promoBanner.exploreLabel")}
     >
       <div className="promo-marquee glass gradient-border orange-glow rounded-full border-primary/30 bg-[linear-gradient(90deg,rgba(8,8,10,0.96),rgba(20,10,8,0.94))] px-0 py-2.5 text-xs text-foreground/90 transition-all duration-300 hover:border-primary/50 hover:orange-glow-strong sm:py-3 sm:text-sm">
         <div className="promo-track font-heading text-[11px] font-semibold uppercase tracking-[0.12em] sm:text-xs sm:tracking-[0.24em]">
           {marqueeItems.map((item, index) => {
-            const isDiscountItem = item === "50% OFF";
+            const isDiscountItem = item === "50% OFF" || item === "خصم 50%";
 
             return (
               <div key={`${item}-${index}`} className="flex shrink-0 items-center">

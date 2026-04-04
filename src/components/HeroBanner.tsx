@@ -1,7 +1,11 @@
 import { motion } from "framer-motion";
 import { Shield, Clock, Sparkles } from "lucide-react";
 
+import { useLanguage } from "@/context/LanguageContext";
+
 const HeroBanner = () => {
+  const { t } = useLanguage();
+
   return (
     <section className="relative overflow-hidden px-4 py-12 sm:px-6 sm:py-16">
       <div className="absolute left-1/4 top-0 h-48 w-48 rounded-full bg-primary/5 blur-3xl sm:h-96 sm:w-96" />
@@ -14,15 +18,15 @@ const HeroBanner = () => {
           transition={{ duration: 0.6 }}
         >
           <span className="glass mb-5 inline-flex rounded-full px-3 py-1.5 text-[11px] font-medium text-primary sm:mb-6 sm:px-4 sm:text-xs">
-            Limited Time — 50% Off All AI Platforms
+            {t("hero.badge")}
           </span>
           <h1 className="mb-4 font-heading text-3xl font-bold leading-tight text-foreground sm:text-4xl md:text-6xl md:leading-none">
-            Premium AI Access
+            {t("hero.titleLine1")}
             <br />
-            <span className="text-primary orange-text-glow">Half the Price</span>
+            <span className="text-primary orange-text-glow">{t("hero.titleLine2")}</span>
           </h1>
           <p className="mx-auto mb-7 max-w-2xl px-1 text-sm text-muted-foreground sm:mb-8 sm:text-base">
-            Get legitimate subscriptions to the world&apos;s top AI platforms — ChatGPT, GitHub, Cursor, Grok, Kimi, and more — at an unbeatable 50% discount.
+            {t("hero.subtitle")}
           </p>
         </motion.div>
 
@@ -34,15 +38,15 @@ const HeroBanner = () => {
         >
           <div className="glass flex items-center gap-2 rounded-full px-3 py-2">
             <Shield className="h-4 w-4 text-primary" />
-            <span>100% Secure</span>
+            <span>{t("hero.secure")}</span>
           </div>
           <div className="glass flex items-center gap-2 rounded-full px-3 py-2">
             <Clock className="h-4 w-4 text-primary" />
-            <span>Instant Delivery</span>
+            <span>{t("hero.delivery")}</span>
           </div>
           <div className="glass flex items-center gap-2 rounded-full px-3 py-2">
             <Sparkles className="h-4 w-4 text-primary" />
-            <span>24/7 Support</span>
+            <span>{t("hero.support")}</span>
           </div>
         </motion.div>
       </div>

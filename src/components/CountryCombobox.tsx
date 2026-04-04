@@ -11,6 +11,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
 import type { CountryOption } from "@/data/countries";
 
@@ -26,10 +27,12 @@ const CountryCombobox = ({
   value,
   onChange,
   countries,
-  placeholder = "Select country",
+  placeholder,
   className,
 }: CountryComboboxProps) => {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
+  const displayPlaceholder = placeholder ?? t("checkout.countryPlaceholder");
 
   const selectedCountry = useMemo(
     () => countries.find((country) => country.code === value),
@@ -52,16 +55,16 @@ const CountryCombobox = ({
           <span className="truncate">
             {selectedCountry
               ? `${selectedCountry.flag} ${selectedCountry.name} (${selectedCountry.dialCode})`
-              : placeholder}
+              : displayPlaceholder}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[min(var(--radix-popover-trigger-width),calc(100vw-1rem))] border-border bg-card/95 p-0 backdrop-blur-xl" align="start">
         <Command>
-          <CommandInput placeholder="Search country..." />
+          <CommandInput placeholder={t("country.search")} />
           <CommandList>
-            <CommandEmpty>No country found.</CommandEmpty>
+            <CommandEmpty>{t("country.none")}</CommandEmpty>
             <CommandGroup>
               {countries.map((country) => (
                 <CommandItem

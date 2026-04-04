@@ -21,9 +21,12 @@ import Header from "@/components/Header";
 import OrderReceiptModal from "@/components/OrderReceiptModal";
 import SecurityBadges from "@/components/SecurityBadges";
 import SupportButton from "@/components/SupportButton";
+import { useGeo } from "@/context/GeoContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { useTelemetry } from "@/context/TelemetryContext";
 import {
+  getPaymentMethodLabel,
   getPaymentReviewDelay,
-  paymentMethodLabels,
   useOrderCenter,
   type OrderRecord,
 } from "@/context/OrderCenterContext";
@@ -138,13 +141,16 @@ const SecureVerificationSpinner = () => (
 );
 
 const Checkout = () => {
+  const { isArabic, t } = useLanguage();
+  const { countryCode: detectedCountryCode, countryName: detectedCountryName, isEgypt, status: geoStatus } = useGeo();
+  const { trackEvent } = useTelemetry();
   const location = useLocation();
   const navigate = useNavigate();
   const { createOrder } = useOrderCenter();
   const { product, plan } = (location.state as { product: Product; plan: Plan }) || {};
 
   const [delivery, setDelivery] = useState<DeliveryMethod>("ready-made");
-  const [payment, setPayment] = useState<PaymentMethod>("vodafone");
+  const [payment, setPayment] = useState<PaymentMethod>("card");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [senderPhone, setSenderPhone] = useState("");
@@ -161,8 +167,10 @@ const Checkout = () => {
   const [submittedOrder, setSubmittedOrder] = useState<OrderRecord | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [processingCardOrderId, setProcessingCardOrderId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const processingTimerRef = useRef<number | null>(null);
+  const interactedFieldsRef = useRef(new Set<string>());
 
   const cleanedCardNumber = cardNumber.replace(/\s/g, "");
   const cardBrand = detectCardBrand(cleanedCardNumber);
@@ -170,6 +178,19 @@ const Checkout = () => {
   const isCardExpiryValid = /^(0[1-9]|1[0-2])\/\d{2}$/.test(cardExpiry);
   const isCardCvcValid = /^[0-9]{3,4}$/.test(cardCvc);
   const cardProcessingDuration = getPaymentReviewDelay("card");
+  const paymentOptions = useMemo(
+    () => [
+      { key: "vodafone" as PaymentMethod, icon: Smartphone, label: t("payments.vodafone") },
+      { key: "crypto" as PaymentMethod, icon: Bitcoin, label: t("payments.crypto") },
+      { key: "card" as PaymentMethod, icon: CreditCard, label: t("payments.card") },
+    ],
+    [t],
+  );
+  const availablePayments = useMemo(
+    () => paymentOptions.filter(({ key }) => key !== "vodafone" || isEgypt),
+    [isEgypt, paymentOptions],
+  );
+  const availablePaymentKeys = availablePayments.map(({ key }) => key);
 
   useEffect(() => {
     return () => {
@@ -178,6 +199,39 @@ const Checkout = () => {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!availablePaymentKeys.includes(payment)) {
+      setPayment("card");
+    }
+  }, [availablePaymentKeys, payment]);
+
+  useEffect(() => {
+    if (!product || !plan) {
+      return;
+    }
+
+    trackEvent({
+      eventType: "checkout_started",
+      eventLabel: "Checkout Started",
+      metadata: {
+        productId: product.id,
+        productName: product.name,
+        planName: plan.name,
+      },
+    });
+  }, [plan, product, trackEvent]);
+
+  useEffect(() => {
+    if (
+      countryCode === "EG" &&
+      detectedCountryCode &&
+      detectedCountryCode !== "INTL" &&
+      countries.some((country) => country.code === detectedCountryCode)
+    ) {
+      setCountryCode(detectedCountryCode);
+    }
+  }, [countryCode, detectedCountryCode]);
 
   const isFormValid = useMemo(() => {
     if (!product || !plan) return false;
@@ -225,9 +279,9 @@ const Checkout = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-muted-foreground mb-4">No product selected</p>
+          <p className="text-muted-foreground mb-4">{t("checkout.noProduct")}</p>
           <button onClick={() => navigate("/")} className="btn-primary text-primary-foreground px-6 py-2 rounded-lg">
-            Back to Store
+            {t("checkout.backToStore")}
           </button>
         </div>
       </div>
@@ -237,67 +291,104 @@ const Checkout = () => {
   const copyToClipboard = async (text: string, label: string) => {
     await navigator.clipboard.writeText(text);
     setCopied(label);
-    toast.success("Copied", { description: text });
+    toast.success(t("checkout.copied"), { description: text });
     setTimeout(() => setCopied(null), 2000);
+  };
+
+  const trackFieldInteraction = (fieldName: string) => {
+    if (interactedFieldsRef.current.has(fieldName)) {
+      return;
+    }
+
+    interactedFieldsRef.current.add(fieldName);
+    trackEvent({
+      eventType: "form_interaction",
+      eventLabel: `Form Interaction: ${fieldName} started`,
+      metadata: {
+        fieldName,
+        page: "checkout",
+      },
+    });
+  };
+
+  const handlePaymentChange = (nextPayment: PaymentMethod) => {
+    setPayment(nextPayment);
+    trackEvent({
+      eventType: "payment_method_selected",
+      eventLabel: `Payment Method Selected: ${getPaymentMethodLabel(nextPayment, t)}`,
+      metadata: {
+        paymentMethod: nextPayment,
+      },
+    });
   };
 
   const CopyButton = ({ text, label }: { text: string; label: string }) => (
     <button
       type="button"
       onClick={() => copyToClipboard(text, label)}
-      className="ml-2 text-primary hover:text-primary/80 transition-colors"
-      title="Copy"
+      className={`${isArabic ? "mr-2" : "ml-2"} text-primary hover:text-primary/80 transition-colors`}
+      title={t("header.copyId")}
     >
       {copied === label ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
     </button>
   );
 
-  const handleSubmit = () => {
-    if (!isFormValid) {
-      toast.error("Please fill in all required fields correctly.");
+  const handleSubmit = async () => {
+    if (!isFormValid || submitting) {
+      toast.error(t("checkout.requiredFields"));
       return;
     }
 
-    const order = createOrder({
-      platformId: product.id,
-      platformName: product.name,
-      planName: plan.name,
-      amount: plan.discountedPrice,
-      paymentMethod: payment,
-      deliveryMethod: delivery,
-      customerEmail: email,
-    });
+    try {
+      setSubmitting(true);
 
-    setSubmittedOrder(order);
-
-    if (payment === "card") {
-      setReceiptOpen(false);
-      setProcessingCardOrderId(order.id);
-      toast.message("3D Secure verification started", {
-        description: "Please wait about 1 minute while the secure payment processor returns the final result.",
+      const order = await createOrder({
+        platformId: product.id,
+        platformName: product.name,
+        planName: plan.name,
+        amount: plan.discountedPrice,
+        paymentMethod: payment,
+        deliveryMethod: delivery,
+        customerEmail: email,
+        countryCode: detectedCountryCode,
+        countryName: detectedCountryName,
       });
 
-      if (processingTimerRef.current) {
-        window.clearTimeout(processingTimerRef.current);
+      setSubmittedOrder(order);
+
+      if (payment === "card") {
+        setReceiptOpen(false);
+        setProcessingCardOrderId(order.id);
+        toast.message(t("checkout.processingStarted"), {
+          description: t("checkout.processingDesc"),
+        });
+
+        if (processingTimerRef.current) {
+          window.clearTimeout(processingTimerRef.current);
+        }
+
+        processingTimerRef.current = window.setTimeout(() => {
+          setProcessingCardOrderId(null);
+          setReceiptOpen(true);
+        }, cardProcessingDuration);
+      } else {
+        setReceiptOpen(true);
       }
 
-      processingTimerRef.current = window.setTimeout(() => {
-        setProcessingCardOrderId(null);
-        setReceiptOpen(true);
-      }, cardProcessingDuration);
-    } else {
-      setReceiptOpen(true);
+      setPassword("");
+      setSenderPhone("");
+      setCardName("");
+      setCardNumber("");
+      setCardExpiry("");
+      setCardCvc("");
+      setScreenshot(null);
+      setTxid("");
+      setConfirmedTransfer(false);
+    } catch {
+      toast.error(isArabic ? "تعذر تأمين الطلب الآن. حاول مرة أخرى." : "Unable to validate your order right now. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
-
-    setPassword("");
-    setSenderPhone("");
-    setCardName("");
-    setCardNumber("");
-    setCardExpiry("");
-    setCardCvc("");
-    setScreenshot(null);
-    setTxid("");
-    setConfirmedTransfer(false);
   };
 
   const inputClass =
@@ -315,7 +406,7 @@ const Checkout = () => {
           onClick={() => navigate("/")}
           className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-8 text-sm"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to Store
+          <ArrowLeft className="w-4 h-4" /> {t("checkout.backToStore")}
         </motion.button>
 
         <motion.div
@@ -343,7 +434,7 @@ const Checkout = () => {
               ${plan.discountedPrice.toFixed(2)}
             </span>
           </div>
-          <SecurityBadges />
+          <SecurityBadges emphasize showThreeDSecure />
         </motion.div>
 
         <motion.div
@@ -355,10 +446,8 @@ const Checkout = () => {
           <div className="flex items-start gap-3 mb-4">
             <AlertTriangle className="w-6 h-6 text-primary flex-shrink-0 mt-0.5" />
             <div>
-              <h3 className="font-heading font-semibold text-foreground mb-1">Order Review Notice</h3>
-              <p className="text-sm text-muted-foreground">
-                Vodafone Cash reviews can take up to 3 minutes, while crypto and card updates usually appear in about 1 minute. If a review fails, use support with your Order ID.
-              </p>
+              <h3 className="font-heading font-semibold text-foreground mb-1">{t("checkout.reviewNotice")}</h3>
+              <p className="text-sm text-muted-foreground">{t("checkout.reviewDesc")}</p>
             </div>
           </div>
           <label className="flex items-center gap-3 cursor-pointer group">
@@ -366,7 +455,7 @@ const Checkout = () => {
               {agreedTerms && <Check className="w-3 h-3 text-primary-foreground" />}
             </div>
             <input type="checkbox" className="hidden" checked={agreedTerms} onChange={(event) => setAgreedTerms(event.target.checked)} />
-            <span className="text-sm text-muted-foreground">I understand that payment verification may require manual review.</span>
+            <span className="text-sm text-muted-foreground">{t("checkout.reviewAgree")}</span>
           </label>
         </motion.div>
 
@@ -377,19 +466,19 @@ const Checkout = () => {
           className="glass mb-6 rounded-xl p-4 sm:p-6"
         >
           <h3 className="font-heading font-semibold text-foreground mb-4 flex items-center gap-2">
-            <Package className="w-4 h-4 text-primary" /> Step 1: Choose Delivery Method
+            <Package className="w-4 h-4 text-primary" /> {t("checkout.step1")}
           </h3>
 
           <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {[
-              { key: "own-account" as DeliveryMethod, icon: User, label: "Upgrade My Account" },
-              { key: "ready-made" as DeliveryMethod, icon: Package, label: "Ready-Made Account" },
+              { key: "own-account" as DeliveryMethod, icon: User, label: t("checkout.upgrade") },
+              { key: "ready-made" as DeliveryMethod, icon: Package, label: t("checkout.readyMade") },
             ].map(({ key, icon: Icon, label }) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => setDelivery(key)}
-                className={`p-4 rounded-lg border text-left transition-all text-sm ${
+                className={`rounded-lg border p-4 text-sm transition-all ${isArabic ? "text-right" : "text-left"} ${
                   delivery === key
                     ? "border-primary bg-primary/10 orange-glow"
                     : "border-border hover:border-muted-foreground"
@@ -412,11 +501,9 @@ const Checkout = () => {
                 exit={{ opacity: 0, height: 0 }}
                 className="space-y-3"
               >
-                <input type="email" placeholder="Your account email" value={email} onChange={(event) => setEmail(event.target.value)} className={inputClass} />
-                <input type="password" placeholder="Your platform password" value={password} onChange={(event) => setPassword(event.target.value)} className={inputClass} />
-                <p className="text-xs text-muted-foreground">
-                  Only provide the login for the AI platform account you want upgraded. We will never ask for your personal email password.
-                </p>
+                <input type="email" placeholder={t("checkout.ownEmail")} value={email} onFocus={() => trackFieldInteraction("Account Email")} onChange={(event) => setEmail(event.target.value)} className={inputClass} />
+                <input type="password" placeholder={t("checkout.platformPassword")} value={password} onFocus={() => trackFieldInteraction("Platform Password")} onChange={(event) => setPassword(event.target.value)} className={inputClass} />
+                <p className="text-xs text-muted-foreground">{t("checkout.ownAccountHelp")}</p>
               </motion.div>
             ) : (
               <motion.div
@@ -426,10 +513,8 @@ const Checkout = () => {
                 exit={{ opacity: 0, height: 0 }}
                 className="space-y-3"
               >
-                <input type="email" placeholder="Your email (to receive account details)" value={email} onChange={(event) => setEmail(event.target.value)} className={inputClass} />
-                <p className="text-xs text-muted-foreground">
-                  A ready-made account will be delivered to this email after your order is reviewed.
-                </p>
+                <input type="email" placeholder={t("checkout.readyEmail")} value={email} onFocus={() => trackFieldInteraction("Ready-Made Email")} onChange={(event) => setEmail(event.target.value)} className={inputClass} />
+                <p className="text-xs text-muted-foreground">{t("checkout.readyHelp")}</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -442,19 +527,41 @@ const Checkout = () => {
           className="glass mb-6 rounded-xl p-4 sm:p-6"
         >
           <h3 className="font-heading font-semibold text-foreground mb-4 flex items-center gap-2">
-            <CreditCard className="w-4 h-4 text-primary" /> Step 2: Choose Payment Method
+            <CreditCard className="w-4 h-4 text-primary" /> {t("checkout.step2")}
           </h3>
 
-          <div className="mb-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
-            {[
-              { key: "vodafone" as PaymentMethod, icon: Smartphone, label: "Vodafone Cash" },
-              { key: "crypto" as PaymentMethod, icon: Bitcoin, label: "Crypto" },
-              { key: "card" as PaymentMethod, icon: CreditCard, label: "Credit Card" },
-            ].map(({ key, icon: Icon, label }) => (
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <span
+              className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${
+                isEgypt
+                  ? "border-emerald-400/35 bg-emerald-500/10 text-emerald-200"
+                  : "border-primary/30 bg-primary/10 text-foreground"
+              }`}
+            >
+              {geoStatus === "loading"
+                ? t("checkout.detectingRegion")
+                : isEgypt
+                  ? t("checkout.localMethodsBadge")
+                  : t("checkout.globalMethodsBadge")}
+            </span>
+            {geoStatus !== "loading" && (
+              <span className="text-[11px] text-muted-foreground">
+                {detectedCountryName}
+                {detectedCountryCode !== "INTL" ? ` (${detectedCountryCode})` : ""}
+              </span>
+            )}
+          </div>
+
+          {!isEgypt && geoStatus !== "loading" && (
+            <p className="mb-4 text-xs text-muted-foreground">{t("checkout.globalMethodsNotice")}</p>
+          )}
+
+          <div className={`mb-5 grid grid-cols-1 gap-2 ${availablePayments.length > 2 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+            {availablePayments.map(({ key, icon: Icon, label }) => (
               <button
                 key={key}
                 type="button"
-                onClick={() => setPayment(key)}
+                onClick={() => handlePaymentChange(key)}
                 className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-3 text-xs font-medium transition-all sm:min-w-0 ${
                   payment === key
                     ? "border-primary bg-primary/10 text-foreground orange-glow"
@@ -467,33 +574,32 @@ const Checkout = () => {
           </div>
 
           <div className="mb-4 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
-            <span className="text-foreground font-semibold">Payment method:</span> {paymentMethodLabels[payment]} • Only safe order metadata is retained, and raw card details are never stored.
+            <span className="text-foreground font-semibold">{t("checkout.paymentMethod")}</span> {getPaymentMethodLabel(payment, t)} • {t("checkout.paymentMeta")}
           </div>
 
           <AnimatePresence mode="wait">
             {payment === "vodafone" && (
               <motion.div key="vf" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
                 <div className="glass rounded-lg p-4 text-sm">
-                  <p className="mb-2 text-foreground">Transfer the exact amount in EGP to:</p>
+                  <p className="mb-2 text-foreground">{t("checkout.transferUsd")}</p>
                   <div className="flex items-center gap-2">
                     <span className="font-heading text-lg font-bold text-primary">01004067162</span>
                     <CopyButton text="01004067162" label="vodafone" />
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Add the sender phone number and upload a clear screenshot. If the image is unclear after 3 minutes, the payment will be rejected and routed to support.
-                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">{t("checkout.screenshotHelp")}</p>
                 </div>
 
                 <input
                   type="tel"
-                  placeholder="Sender Phone Number"
+                  placeholder={t("checkout.senderPhone")}
                   value={senderPhone}
+                  onFocus={() => trackFieldInteraction("Vodafone Cash Number")}
                   onChange={(event) => setSenderPhone(event.target.value)}
                   className={`${inputClass} ${!isValidPhone(senderPhone) && senderPhone.length > 0 ? "border-red-500/70 focus:ring-red-500" : ""}`}
                 />
 
                 <div>
-                  <label className="mb-2 block text-sm text-muted-foreground">Upload transfer screenshot</label>
+                  <label className="mb-2 block text-sm text-muted-foreground">{t("checkout.uploadScreenshot")}</label>
                   <div
                     onClick={() => fileInputRef.current?.click()}
                     className={`flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed py-6 text-sm transition-all ${
@@ -506,7 +612,7 @@ const Checkout = () => {
                     {screenshot ? (
                       <span className="text-xs font-medium text-primary">{screenshot.name}</span>
                     ) : (
-                      <span className="text-xs text-muted-foreground">Click to upload transfer screenshot</span>
+                      <span className="text-xs text-muted-foreground">{t("checkout.clickToUpload")}</span>
                     )}
                     <input
                       ref={fileInputRef}
@@ -522,7 +628,7 @@ const Checkout = () => {
 
             {payment === "crypto" && (
               <motion.div key="crypto" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
-                <p className="text-sm text-foreground">Transfer the exact amount to one of the wallets below:</p>
+                <p className="text-sm text-foreground">{t("checkout.cryptoIntro")}</p>
                 {[
                   { label: "BTC", address: "0x2c36f6613812ae3602a4e7665549f280c041f9b2" },
                   { label: "USDT (TRC20)", address: "TMgBGB6skUQTwQ79HSip7jgat3pbtAQiNi" },
@@ -535,10 +641,8 @@ const Checkout = () => {
                     </div>
                   </div>
                 ))}
-                <input type="text" placeholder="Paste your Transaction Hash (TXID)" value={txid} onChange={(event) => setTxid(event.target.value)} className={inputClass} />
-                <p className="text-xs text-muted-foreground">
-                  If confirmation is not received within about 1 minute, the order will be marked as failed because of a wallet provider issue.
-                </p>
+                <input type="text" placeholder={t("checkout.txid")} value={txid} onFocus={() => trackFieldInteraction("Crypto Transaction ID")} onChange={(event) => setTxid(event.target.value)} className={inputClass} />
+                <p className="text-xs text-muted-foreground">{t("checkout.cryptoHelp")}</p>
               </motion.div>
             )}
 
@@ -547,8 +651,8 @@ const Checkout = () => {
                 <div className="overflow-hidden rounded-2xl border border-primary/20 bg-[linear-gradient(135deg,rgba(249,115,22,0.12),rgba(15,23,42,0.92))] p-4 text-xs text-muted-foreground">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-[11px] uppercase tracking-[0.24em] text-primary">Premium Secure Checkout</p>
-                      <h4 className="font-heading text-lg font-bold text-foreground">Card details</h4>
+                      <p className="text-[11px] uppercase tracking-[0.24em] text-primary">{t("checkout.premiumCard")}</p>
+                      <h4 className="font-heading text-lg font-bold text-foreground">{t("checkout.cardDetails")}</h4>
                     </div>
                     <div className="flex items-center gap-2">
                       <VisaLogo />
@@ -556,7 +660,7 @@ const Checkout = () => {
                     </div>
                   </div>
                   <p>
-                    This Stripe-style layout is provider-ready. In production, a PCI-compliant processor should handle authentication and return only the payment result to NITRO X.
+                    {t("checkout.cardIntro")}
                   </p>
                 </div>
 
@@ -565,8 +669,9 @@ const Checkout = () => {
                     <input
                       type="text"
                       inputMode="numeric"
-                      placeholder="Card Number"
+                      placeholder={t("checkout.cardNumber")}
                       value={cardNumber}
+                      onFocus={() => trackFieldInteraction("Card Number")}
                       onChange={(event) => setCardNumber(formatCardNumber(event.target.value))}
                       className={`${inputClass} pr-28 font-mono tracking-[0.2em] ${
                         !isCardNumberValid && cleanedCardNumber.length === 16 ? "border-red-500/70 focus:ring-red-500" : ""
@@ -584,7 +689,7 @@ const Checkout = () => {
                   </div>
 
                   {!isCardNumberValid && cleanedCardNumber.length === 16 && (
-                    <p className="text-xs text-red-400">Please enter a valid Visa or Mastercard number.</p>
+                    <p className="text-xs text-red-400">{t("checkout.cardInvalid")}</p>
                   )}
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -592,6 +697,7 @@ const Checkout = () => {
                       type="text"
                       placeholder="MM/YY"
                       value={cardExpiry}
+                      onFocus={() => trackFieldInteraction("Card Expiry")}
                       onChange={(event) => setCardExpiry(formatCardExpiry(event.target.value))}
                       className={`${inputClass} ${!isCardExpiryValid && cardExpiry.length === 5 ? "border-red-500/70 focus:ring-red-500" : ""}`}
                     />
@@ -600,6 +706,7 @@ const Checkout = () => {
                       inputMode="numeric"
                       placeholder="CVC"
                       value={cardCvc}
+                      onFocus={() => trackFieldInteraction("Card CVC")}
                       onChange={(event) => setCardCvc(formatCardCvc(event.target.value))}
                       className={`${inputClass} ${!isCardCvcValid && cardCvc.length > 0 ? "border-red-500/70 focus:ring-red-500" : ""}`}
                     />
@@ -607,8 +714,9 @@ const Checkout = () => {
 
                   <input
                     type="text"
-                    placeholder="Name on Card"
+                    placeholder={t("checkout.cardholder")}
                     value={cardName}
+                    onFocus={() => trackFieldInteraction("Cardholder Name")}
                     onChange={(event) => setCardName(event.target.value)}
                     className={inputClass}
                   />
@@ -619,7 +727,7 @@ const Checkout = () => {
                 <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-background/40 px-4 py-3 text-xs text-muted-foreground">
                   <span className="inline-flex items-center gap-2 text-foreground">
                     <Shield className="h-3.5 w-3.5 text-primary" />
-                    Secure processor review window: about 1 minute.
+                    {t("checkout.reviewWindow")}
                   </span>
                   <div className="flex items-center gap-2">
                     <VisaLogo />
@@ -644,7 +752,7 @@ const Checkout = () => {
               </div>
               <input type="checkbox" className="hidden" checked={confirmedTransfer} onChange={(event) => setConfirmedTransfer(event.target.checked)} />
               <span className="text-sm text-muted-foreground">
-                I confirm that the transfer reference I submitted is correct and ready for review.
+                {t("checkout.confirmTransfer")}
               </span>
             </label>
           </motion.div>
@@ -657,22 +765,22 @@ const Checkout = () => {
           whileHover={isFormValid ? { scale: 1.02 } : {}}
           whileTap={isFormValid ? { scale: 0.98 } : {}}
           onClick={handleSubmit}
-          disabled={!isFormValid}
+          disabled={!isFormValid || submitting}
           className={`w-full rounded-xl py-4 font-heading text-base font-bold transition-all sm:text-lg ${
-            isFormValid
+            isFormValid && !submitting
               ? "btn-primary text-primary-foreground"
               : "bg-muted text-muted-foreground cursor-not-allowed"
           }`}
         >
-          Complete Order — ${plan.discountedPrice.toFixed(2)}
+          {submitting ? t("checkout.secureProcessing") : `${t("checkout.completeOrder")} — $${plan.discountedPrice.toFixed(2)}`}
         </motion.button>
 
         <p className="mt-3 text-center text-xs text-muted-foreground">
-          After submission, updates appear in the notification bell. If a review fails, use <span className="text-foreground font-medium">Get Help</span> to open support with your Order ID.
+          {t("checkout.afterSubmit")} <span className="text-foreground font-medium">{t("checkout.getHelp")}</span> {t("checkout.afterSubmitTail")}
         </p>
 
         <div className="mt-6">
-          <SecurityBadges />
+          <SecurityBadges emphasize showThreeDSecure />
         </div>
       </main>
 
@@ -708,25 +816,23 @@ const Checkout = () => {
                 <SecureVerificationSpinner />
 
                 <div className="text-center">
-                  <p className="text-[11px] uppercase tracking-[0.28em] text-emerald-300/90">Secure Processing</p>
-                  <h3 className="mt-2 font-heading text-2xl font-bold text-foreground sm:text-[30px]">Processing your payment</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Please wait while your bank completes 3D Secure verification. This secure screen will update automatically in about 1 minute.
-                  </p>
+                  <p className="text-[11px] uppercase tracking-[0.28em] text-emerald-300/90">{t("checkout.secureProcessing")}</p>
+                  <h3 className="mt-2 font-heading text-2xl font-bold text-foreground sm:text-[30px]">{t("checkout.processingPayment")}</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">{t("checkout.bankVerification")}</p>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Order ID</p>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{t("checkout.orderId")}</p>
                     <p className="mt-1 text-sm font-semibold text-foreground">{submittedOrder.id}</p>
                   </div>
                   <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Package Name</p>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{t("checkout.packageName")}</p>
                     <p className="mt-1 text-sm font-semibold text-foreground">{submittedOrder.planName}</p>
                   </div>
                   <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Payment Method</p>
-                    <p className="mt-1 text-sm font-semibold text-foreground">{paymentMethodLabels.card}</p>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{t("checkout.paymentMethodLabel")}</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">{getPaymentMethodLabel("card", t)}</p>
                   </div>
                 </div>
               </div>

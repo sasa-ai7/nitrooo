@@ -1,28 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { MessageCircle, Send, X } from "lucide-react";
 
+import { useLanguage } from "@/context/LanguageContext";
 import { ORDER_SUPPORT_URL } from "@/context/OrderCenterContext";
 
 interface ChatMessage {
   from: "bot" | "user";
   text: string;
 }
-
-const quickReplies = [
-  "How does the payment and delivery work?",
-  "When will I receive my account?",
-  "What if I choose 'Upgrade My Account'?",
-];
-
-const botResponses: Record<string, string> = {
-  [quickReplies[0]]:
-    "1. Choose your plan.\n2. Transfer the exact amount.\n3. Upload the receipt/TXID.\n4. Our team reviews the payment and delivers your account!",
-  [quickReplies[1]]:
-    "Delivery usually takes 5 to 15 minutes after we verify your payment transfer. We will contact you via the email you provided.",
-  [quickReplies[2]]:
-    "⚠️ IMPORTANT: If you choose 'Upgrade My Account', you only need to provide the login details for the AI Platform itself (e.g., your ChatGPT login). DO NOT send us your personal Google/Gmail password. Your privacy is our top priority.",
-};
 
 interface SupportChatProps {
   open: boolean;
@@ -31,14 +17,38 @@ interface SupportChatProps {
 }
 
 const SupportChat = ({ open, onClose, orderId = null }: SupportChatProps) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      from: "bot",
-      text: "Welcome to Nitro X Support! 👋 How can I help you today? Please choose a topic below.",
-    },
-  ]);
+  const { isArabic, t } = useLanguage();
+  const quickReplies = useMemo(
+    () => [t("supportChat.q1"), t("supportChat.q2"), t("supportChat.q3")],
+    [t],
+  );
+  const botResponses = useMemo<Record<string, string>>(
+    () => ({
+      [quickReplies[0]]: t("supportChat.a1"),
+      [quickReplies[1]]: t("supportChat.a2"),
+      [quickReplies[2]]: t("supportChat.a3"),
+    }),
+    [quickReplies, t],
+  );
+
+  const [messages, setMessages] = useState<ChatMessage[]>([{ from: "bot", text: t("supportChat.welcome") }]);
   const [showChips, setShowChips] = useState(true);
   const [lastOrderPrompt, setLastOrderPrompt] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMessages((prev) => {
+      if (prev.length === 0) {
+        return [{ from: "bot", text: t("supportChat.welcome") }];
+      }
+
+      const [first, ...rest] = prev;
+      if (first?.from === "bot") {
+        return [{ ...first, text: t("supportChat.welcome") }, ...rest];
+      }
+
+      return [{ from: "bot", text: t("supportChat.welcome") }, ...prev];
+    });
+  }, [t]);
 
   useEffect(() => {
     if (!open || !orderId || orderId === lastOrderPrompt) {
@@ -49,11 +59,11 @@ const SupportChat = ({ open, onClose, orderId = null }: SupportChatProps) => {
       ...prev,
       {
         from: "bot",
-        text: `I’m ready to help with Order ID ${orderId}. Please describe the issue here, then open Telegram below if you need a human agent.`,
+        text: t("supportChat.orderPrompt", { orderId }),
       },
     ]);
     setLastOrderPrompt(orderId);
-  }, [lastOrderPrompt, open, orderId]);
+  }, [lastOrderPrompt, open, orderId, t]);
 
   const handleChip = (chip: string) => {
     const userMsg: ChatMessage = { from: "user", text: chip };
@@ -86,8 +96,8 @@ const SupportChat = ({ open, onClose, orderId = null }: SupportChatProps) => {
                   <MessageCircle className="h-4 w-4 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-heading text-sm font-bold text-foreground">Nitro X Support</h3>
-                  <span className="text-[10px] text-green-400">● Online</span>
+                  <h3 className="font-heading text-sm font-bold text-foreground">{t("supportChat.title")}</h3>
+                  <span className="text-[10px] text-green-400">{t("supportChat.online")}</span>
                 </div>
               </div>
               <button
@@ -112,7 +122,7 @@ const SupportChat = ({ open, onClose, orderId = null }: SupportChatProps) => {
                       msg.from === "user"
                         ? "rounded-br-md bg-primary text-primary-foreground"
                         : "glass rounded-bl-md text-foreground"
-                    }`}
+                    } ${isArabic ? "text-right" : "text-left"}`}
                   >
                     {msg.text}
                   </div>
@@ -130,7 +140,7 @@ const SupportChat = ({ open, onClose, orderId = null }: SupportChatProps) => {
                       key={chip}
                       type="button"
                       onClick={() => handleChip(chip)}
-                      className="block w-full rounded-xl border border-primary/30 px-3.5 py-2.5 text-left text-[11px] text-primary transition-all hover:border-primary/60 hover:bg-primary/10 sm:px-4 sm:text-xs"
+                      className={`block w-full rounded-xl border border-primary/30 px-3.5 py-2.5 text-[11px] text-primary transition-all hover:border-primary/60 hover:bg-primary/10 sm:px-4 sm:text-xs ${isArabic ? "text-right" : "text-left"}`}
                     >
                       {chip}
                     </button>
@@ -147,7 +157,7 @@ const SupportChat = ({ open, onClose, orderId = null }: SupportChatProps) => {
                 className="btn-primary flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-primary-foreground"
               >
                 <Send className="h-4 w-4" />
-                Talk to Human Support
+                {t("supportChat.human")}
               </a>
             </div>
           </motion.div>

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Cairo:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -68,6 +68,16 @@
   body {
     @apply bg-background text-foreground font-body antialiased overflow-x-hidden;
     text-wrap: pretty;
+  }
+
+  body.font-arabic {
+    font-family: 'Cairo', sans-serif;
+  }
+
+  html[dir="rtl"] body,
+  html[dir="rtl"] .font-body,
+  html[dir="rtl"] .font-heading {
+    font-family: 'Cairo', sans-serif;
   }
 
   img,
@@ -158,22 +168,22 @@
     align-items: center;
     width: max-content;
     min-width: max-content;
-    animation: promo-marquee-scroll 22s linear infinite;
+    animation: promo-marquee-scroll 18s ease-in-out infinite alternate;
     will-change: transform;
-    transform: translate3d(0, 0, 0);
+    transform: translate3d(-33.3333%, 0, 0);
     backface-visibility: hidden;
   }
 
   @media (hover: hover) and (pointer: fine) {
     .promo-marquee:hover .promo-track {
-      animation-duration: 30s;
+      animation-duration: 24s;
     }
   }
 }
 
 @media (max-width: 640px) {
   .promo-track {
-    animation-duration: 18s;
+    animation-duration: 14s;
   }
 }
 
@@ -190,11 +200,11 @@
 
 @keyframes promo-marquee-scroll {
   from {
-    transform: translate3d(0, 0, 0);
+    transform: translate3d(-33.3333%, 0, 0);
   }
 
   to {
-    transform: translate3d(-33.3333%, 0, 0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
@@ -205,5 +215,35 @@
 
   .font-body {
     font-family: 'Inter', sans-serif;
+  }
+
+  .premium-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(25 95% 53% / 0.42) transparent;
+  }
+
+  .premium-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .premium-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .premium-scrollbar::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: linear-gradient(
+      180deg,
+      hsl(25 95% 53% / 0.55),
+      hsl(25 95% 53% / 0.2)
+    );
+  }
+
+  .premium-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(
+      180deg,
+      hsl(25 95% 53% / 0.7),
+      hsl(25 95% 53% / 0.28)
+    );
   }
 }

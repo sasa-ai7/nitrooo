@@ -6,15 +6,17 @@ import { toast } from "sonner";
 
 import Header from "@/components/Header";
 import SupportButton from "@/components/SupportButton";
+import { useLanguage } from "@/context/LanguageContext";
 import {
   formatOrderDate,
+  getPaymentMethodLabel,
   ORDER_SUPPORT_URL,
-  paymentMethodLabels,
   useOrderCenter,
 } from "@/context/OrderCenterContext";
 import { platformLogos } from "@/data/platformLogos";
 
 const OrderResult = () => {
+  const { language, t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const { orderId } = useParams();
@@ -31,7 +33,7 @@ const OrderResult = () => {
   const copyOrderId = async () => {
     if (!order) return;
     await navigator.clipboard.writeText(order.id);
-    toast.success("Order ID copied", { description: order.id });
+    toast.success(t("toasts.orderCopied"), { description: order.id });
   };
 
   if (!order) {
@@ -40,16 +42,16 @@ const OrderResult = () => {
         <Header />
         <main className="container mx-auto px-4 py-10 sm:px-6 sm:py-12">
           <div className="mx-auto max-w-xl rounded-2xl border border-border bg-card/60 p-6 text-center">
-            <h1 className="font-heading text-2xl font-bold text-foreground">Order not found</h1>
+            <h1 className="font-heading text-2xl font-bold text-foreground">{t("orderResult.notFound")}</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              We could not locate that order. Please return to the store or contact support.
+              {t("orderResult.notFoundDesc")}
             </p>
             <button
               type="button"
               onClick={() => navigate("/")}
               className="btn-primary mt-5 rounded-xl px-5 py-2.5 text-sm text-primary-foreground"
             >
-              Back to Store
+              {t("checkout.backToStore")}
             </button>
           </div>
         </main>
@@ -71,7 +73,7 @@ const OrderResult = () => {
           className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Store
+          {t("checkout.backToStore")}
         </button>
 
         <motion.section
@@ -89,9 +91,9 @@ const OrderResult = () => {
                 </div>
               )}
               <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-primary">Order received</p>
+                <p className="text-xs uppercase tracking-[0.24em] text-primary">{t("orderResult.received")}</p>
                 <h1 className="break-all font-heading text-2xl font-bold text-foreground sm:text-3xl">{order.id}</h1>
-                <p className="mt-1 text-sm text-muted-foreground">Your latest payment review update is shown below.</p>
+                <p className="mt-1 text-sm text-muted-foreground">{t("orderResult.updateShown")}</p>
               </div>
             </div>
             <span
@@ -107,27 +109,27 @@ const OrderResult = () => {
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div className="rounded-xl border border-border bg-background/40 p-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Platform</p>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{t("header.platform")}</p>
               <p className="mt-1 text-sm font-semibold text-foreground">{order.platformName}</p>
             </div>
             <div className="rounded-xl border border-border bg-background/40 p-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Package Name</p>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{t("checkout.packageName")}</p>
               <p className="mt-1 text-sm font-semibold text-foreground">{order.planName}</p>
             </div>
             <div className="rounded-xl border border-border bg-background/40 p-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Payment Method</p>
-              <p className="mt-1 text-sm font-semibold text-foreground">{paymentMethodLabels[order.paymentMethod]}</p>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{t("checkout.paymentMethodLabel")}</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">{getPaymentMethodLabel(order.paymentMethod, t)}</p>
             </div>
             <div className="rounded-xl border border-border bg-background/40 p-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Order Date & Time</p>
-              <p className="mt-1 text-sm font-semibold text-foreground">{formatOrderDate(order.submittedAt)}</p>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{t("orderResult.orderDate")}</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">{formatOrderDate(order.submittedAt, language === "ar" ? "ar-EG" : "en-US")}</p>
             </div>
             <div className="rounded-xl border border-border bg-background/40 p-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Customer Email</p>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{t("orderResult.customerEmail")}</p>
               <p className="mt-1 break-all text-sm font-semibold text-foreground">{order.customerEmail}</p>
             </div>
             <div className="rounded-xl border border-border bg-background/40 p-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Current Status</p>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{t("orderResult.currentStatus")}</p>
               <p className="mt-1 text-sm font-semibold text-foreground">{order.statusTitle}</p>
             </div>
           </div>
@@ -135,7 +137,7 @@ const OrderResult = () => {
           <div className="mt-5 rounded-2xl border border-primary/20 bg-primary/5 p-4">
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-primary" />
-              <p className="text-sm font-semibold text-foreground">Next steps</p>
+              <p className="text-sm font-semibold text-foreground">{t("orderResult.nextSteps")}</p>
             </div>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">{order.statusDescription}</p>
             <p className="mt-2 text-sm text-muted-foreground">{order.supportNote}</p>
@@ -148,7 +150,7 @@ const OrderResult = () => {
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border px-4 py-2 text-sm text-foreground sm:w-auto"
             >
               <Copy className="h-4 w-4" />
-              Copy Order ID
+              {t("notifications.copyOrderId")}
             </button>
             <a
               href={ORDER_SUPPORT_URL}
@@ -157,7 +159,7 @@ const OrderResult = () => {
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-primary/30 px-4 py-2 text-sm text-primary sm:w-auto"
             >
               <ExternalLink className="h-4 w-4" />
-              Contact Support
+              {t("orderResult.contactSupport")}
             </a>
           </div>
         </motion.section>

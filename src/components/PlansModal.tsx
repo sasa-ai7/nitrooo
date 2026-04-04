@@ -1,5 +1,8 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Check } from "lucide-react";
+
+import { useLanguage } from "@/context/LanguageContext";
+import { useTelemetry } from "@/context/TelemetryContext";
 import { platformLogos } from "@/data/platformLogos";
 import type { Product, Plan } from "@/data/products";
 
@@ -10,7 +13,10 @@ interface PlansModalProps {
 }
 
 const PlansModal = ({ product, onClose, onBuy }: PlansModalProps) => {
+  const { isArabic, t } = useLanguage();
+  const { trackEvent } = useTelemetry();
   const logoUrl = product ? platformLogos[product.id] : undefined;
+  const description = product ? (isArabic && product.descriptionAr ? product.descriptionAr : product.description) : "";
 
   return (
     <AnimatePresence>
@@ -30,7 +36,7 @@ const PlansModal = ({ product, onClose, onBuy }: PlansModalProps) => {
             onClick={(e) => e.stopPropagation()}
             className="glass-strong max-h-[90svh] w-full max-w-3xl overflow-y-auto rounded-2xl p-4 sm:p-6 md:p-8"
           >
-            <div className="mb-5 flex items-start justify-between gap-3 sm:mb-6">
+            <div className={`mb-5 flex items-start justify-between gap-3 sm:mb-6 ${isArabic ? "text-right" : "text-left"}`}>
               <div className="min-w-0 flex items-center gap-3">
                 {logoUrl ? (
                   <img
@@ -41,18 +47,18 @@ const PlansModal = ({ product, onClose, onBuy }: PlansModalProps) => {
                     decoding="async"
                   />
                 ) : (
-                  <span className="text-sm font-bold text-foreground shrink-0">{product.name.slice(0, 2)}</span>
+                  <span className="shrink-0 text-sm font-bold text-foreground">{product.name.slice(0, 2)}</span>
                 )}
                 <div className="min-w-0">
                   <h2 className="font-heading text-xl font-bold text-foreground sm:text-2xl">{product.name}</h2>
-                  <p className="text-sm text-muted-foreground">{product.description}</p>
+                  <p className="text-sm text-muted-foreground">{description}</p>
                 </div>
               </div>
               <button
                 onClick={onClose}
                 className="glass flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-muted/50"
               >
-                <X className="w-5 h-5 text-muted-foreground" />
+                <X className="h-5 w-5 text-muted-foreground" />
               </button>
             </div>
 
@@ -63,22 +69,22 @@ const PlansModal = ({ product, onClose, onBuy }: PlansModalProps) => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.08 }}
-                  className="glass gradient-border flex min-w-0 flex-col gap-3 rounded-xl p-4 transition-shadow duration-300 hover:orange-glow sm:p-5"
+                  className={`glass gradient-border flex min-w-0 flex-col gap-3 rounded-xl p-4 transition-shadow duration-300 hover:orange-glow sm:p-5 ${isArabic ? "text-right" : "text-left"}`}
                 >
                   <h3 className="font-heading text-lg font-bold text-foreground">{plan.name}</h3>
                   <ul className="flex-1 space-y-1.5 break-words">
                     {plan.features.map((f) => (
                       <li key={f} className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Check className="w-3 h-3 text-primary flex-shrink-0" />
+                        <Check className="h-3 w-3 flex-shrink-0 text-primary" />
                         {f}
                       </li>
                     ))}
                   </ul>
                   <div className="space-y-0.5 pt-2">
-                    <p className="text-muted-foreground text-sm line-through">
+                    <p className="text-sm text-muted-foreground line-through">
                       ${plan.originalPrice.toFixed(2)}/mo
                     </p>
-                    <p className="font-heading font-bold text-2xl text-primary orange-text-glow">
+                    <p className="font-heading text-2xl font-bold text-primary orange-text-glow">
                       ${plan.discountedPrice.toFixed(2)}
                       <span className="text-sm font-normal text-muted-foreground">/mo</span>
                     </p>
@@ -86,10 +92,21 @@ const PlansModal = ({ product, onClose, onBuy }: PlansModalProps) => {
                   <motion.button
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
-                    onClick={() => onBuy(product, plan)}
-                    className="btn-primary text-primary-foreground py-2.5 px-6 rounded-lg text-sm font-semibold w-full"
+                    onClick={() => {
+                      trackEvent({
+                        eventType: "product_click",
+                        eventLabel: `Product Click: ${plan.name}`,
+                        metadata: {
+                          productId: product.id,
+                          productName: product.name,
+                          planName: plan.name,
+                        },
+                      });
+                      onBuy(product, plan);
+                    }}
+                    className="btn-primary w-full rounded-lg px-6 py-2.5 text-sm font-semibold text-primary-foreground"
                   >
-                    Buy Now
+                    {t("cards.buyNow")}
                   </motion.button>
                 </motion.div>
               ))}
