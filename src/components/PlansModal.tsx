@@ -3,6 +3,7 @@ import { X, Check } from "lucide-react";
 
 import { useLanguage } from "@/context/LanguageContext";
 import { useTelemetry } from "@/context/TelemetryContext";
+import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { platformLogos } from "@/data/platformLogos";
 import type { Product, Plan } from "@/data/products";
 
@@ -15,6 +16,8 @@ interface PlansModalProps {
 const PlansModal = ({ product, onClose, onBuy }: PlansModalProps) => {
   const { isArabic, t } = useLanguage();
   const { trackEvent } = useTelemetry();
+
+  useBodyScrollLock(Boolean(product));
   const logoUrl = product ? platformLogos[product.id] : undefined;
   const description = product ? (isArabic && product.descriptionAr ? product.descriptionAr : product.description) : "";
 
@@ -34,7 +37,7 @@ const PlansModal = ({ product, onClose, onBuy }: PlansModalProps) => {
             exit={{ opacity: 0, scale: 0.95, y: 28 }}
             transition={{ type: "spring", damping: 25, stiffness: 280 }}
             onClick={(e) => e.stopPropagation()}
-            className="glass-strong max-h-[90svh] w-full max-w-3xl overflow-y-auto rounded-2xl p-4 sm:p-6 md:p-8"
+            className="premium-scrollbar glass-strong max-h-[90svh] w-full max-w-3xl overflow-y-auto overscroll-contain rounded-2xl p-4 sm:p-6 md:p-8"
           >
             <div className={`mb-5 flex items-start justify-between gap-3 sm:mb-6 ${isArabic ? "text-right" : "text-left"}`}>
               <div className="min-w-0 flex items-center gap-3">

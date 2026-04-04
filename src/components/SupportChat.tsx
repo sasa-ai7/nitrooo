@@ -4,6 +4,7 @@ import { MessageCircle, Send, X } from "lucide-react";
 
 import { useLanguage } from "@/context/LanguageContext";
 import { ORDER_SUPPORT_URL } from "@/context/OrderCenterContext";
+import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 
 interface ChatMessage {
   from: "bot" | "user";
@@ -34,6 +35,8 @@ const SupportChat = ({ open, onClose, orderId = null }: SupportChatProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([{ from: "bot", text: t("supportChat.welcome") }]);
   const [showChips, setShowChips] = useState(true);
   const [lastOrderPrompt, setLastOrderPrompt] = useState<string | null>(null);
+
+  useBodyScrollLock(open);
 
   useEffect(() => {
     setMessages((prev) => {
@@ -109,7 +112,7 @@ const SupportChat = ({ open, onClose, orderId = null }: SupportChatProps) => {
               </button>
             </div>
 
-            <div className="flex-1 space-y-3 overflow-y-auto p-3 sm:p-4">
+            <div className="premium-scrollbar flex-1 space-y-3 overflow-y-auto overscroll-contain p-3 sm:p-4">
               {messages.map((msg, index) => (
                 <motion.div
                   key={`${msg.from}-${index}`}

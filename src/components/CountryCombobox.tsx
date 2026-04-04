@@ -21,6 +21,7 @@ interface CountryComboboxProps {
   countries: CountryOption[];
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }
 
 const CountryCombobox = ({
@@ -29,6 +30,7 @@ const CountryCombobox = ({
   countries,
   placeholder,
   className,
+  disabled = false,
 }: CountryComboboxProps) => {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
@@ -47,8 +49,9 @@ const CountryCombobox = ({
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          disabled={disabled}
           className={cn(
-            "min-h-12 w-full justify-between border-border bg-muted/50 px-4 py-3 text-left text-sm font-normal text-foreground hover:bg-muted/70 hover:text-foreground",
+            "min-h-12 w-full justify-between border-border bg-muted/50 px-4 py-3 text-left text-sm font-normal text-foreground hover:bg-muted/70 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60",
             className,
           )}
         >
@@ -71,6 +74,10 @@ const CountryCombobox = ({
                   key={country.code}
                   value={`${country.name} ${country.code} ${country.dialCode}`}
                   onSelect={() => {
+                    if (disabled) {
+                      return;
+                    }
+
                     onChange(country.code);
                     setOpen(false);
                   }}

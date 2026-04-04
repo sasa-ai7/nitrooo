@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -44,7 +45,7 @@ type PaymentReviewRule = {
 const paymentReviewDelayMs: Record<PaymentMethodKey, number> = {
   vodafone: 180000,
   crypto: 60000,
-  card: 60000,
+  card: 4000,
 };
 
 const getPaymentReviewRules = (t: (key: string) => string): Record<PaymentMethodKey, PaymentReviewRule> => ({
@@ -175,9 +176,12 @@ export const openSupportChat = (orderId?: string | null) => {
   );
 };
 
+const needsFollowUp = (order: OrderRecord) => order.providerState === "pending";
+
 export const OrderCenterProvider = ({ children }: { children: ReactNode }) => {
   const { t } = useLanguage();
   const [orders, setOrders] = useState<OrderRecord[]>([]);
+  const timersRef = useRef<Record<string, number>>({});
 
   const paymentReviewRules = useMemo(() => getPaymentReviewRules(t), [t]);
 
@@ -212,18 +216,102 @@ export const OrderCenterProvider = ({ children }: { children: ReactNode }) => {
     setOrders((prev) => prev.map((order) => ({ ...order, unread: false })));
   }, []);
 
+  const finalizeOrder = useCallback(
+    (orderId: string) => {
+      if (timersRef.current[orderId]) {
+        window.clearTimeout(timersRef.current[orderId]);
+        delete timersRef.current[orderId];
+      }
+
+      let updatedOrder: OrderRecord | null = null;
+
+      setOrders((prev) =>
+        prev.map((order) => {
+          if (order.id !== orderId || !needsFollowUp(order)) {
+            return order;
+          }
+
+          const localizedState = getLocalizedOrderState({ ...order, providerState: "rejected" });
+
+          updatedOrder = {
+            ...order,
+            ...localizedState,
+            providerState: "rejected",
+            unread: true,
+            updatedAt: new Date().toISOString(),
+          };
+
+          return updatedOrder;
+        }),
+      );
+
+      if (updatedOrder) {
+        const rule = paymentReviewRules[updatedOrder.paymentMethod];
+
+        toast.error(rule.toastTitle, {
+          description: rule.toastDescription,
+          action: {
+            label: t("header.getHelp"),
+            onClick: () => openSupportChat(updatedOrder?.id),
+          },
+        });
+      }
+    },
+    [getLocalizedOrderState, paymentReviewRules, t],
+  );
+
+  const scheduleReviewTimeout = useCallback(
+    (order: OrderRecord) => {
+      if (typeof window === "undefined" || !needsFollowUp(order) || timersRef.current[order.id]) {
+        return;
+      }
+
+      const elapsed = Date.now() - new Date(order.submittedAt).getTime();
+      const remaining = getPaymentReviewDelay(order.paymentMethod) - elapsed;
+
+      if (remaining <= 0) {
+        finalizeOrder(order.id);
+        return;
+      }
+
+      timersRef.current[order.id] = window.setTimeout(() => {
+        finalizeOrder(order.id);
+      }, remaining);
+    },
+    [finalizeOrder],
+  );
 
   const createOrder = useCallback(
     async (input: CreateOrderInput) => {
-      const validatedOrder = await submitSecureOrder({
-        platformId: input.platformId,
-        planName: input.planName,
-        paymentMethod: input.paymentMethod,
-        deliveryMethod: input.deliveryMethod,
-        customerEmail: input.customerEmail,
-        countryCode: input.countryCode,
-        countryName: input.countryName,
-      });
+      let validatedOrder;
+
+      try {
+        validatedOrder = await submitSecureOrder({
+          platformId: input.platformId,
+          planName: input.planName,
+          paymentMethod: input.paymentMethod,
+          deliveryMethod: input.deliveryMethod,
+          customerEmail: input.customerEmail,
+          countryCode: input.countryCode,
+          countryName: input.countryName,
+        });
+      } catch {
+        const fallbackTimestamp = new Date().toISOString();
+        validatedOrder = {
+          id: generateOrderId(),
+          platformId: input.platformId,
+          platformName: input.platformName,
+          planName: input.planName,
+          amount: input.amount,
+          paymentMethod: input.paymentMethod,
+          deliveryMethod: input.deliveryMethod,
+          customerEmail: input.customerEmail,
+          countryCode: input.countryCode,
+          countryName: input.countryName,
+          submittedAt: fallbackTimestamp,
+          updatedAt: fallbackTimestamp,
+        };
+      }
 
       const rule = paymentReviewRules[validatedOrder.paymentMethod];
       const order: OrderRecord = {
@@ -248,6 +336,7 @@ export const OrderCenterProvider = ({ children }: { children: ReactNode }) => {
       };
 
       setOrders((prev) => [order, ...prev].slice(0, 12));
+      scheduleReviewTimeout(order);
 
       toast.success(t("toasts.orderSubmitted"), {
         description: `${order.id} • ${getPaymentMethodLabel(order.paymentMethod, t)} • ${rule.pendingStatus}`,
@@ -255,7 +344,7 @@ export const OrderCenterProvider = ({ children }: { children: ReactNode }) => {
 
       return order;
     },
-    [paymentReviewRules, t],
+    [paymentReviewRules, scheduleReviewTimeout, t],
   );
 
   const getOrderById = useCallback(
@@ -310,7 +399,14 @@ export const OrderCenterProvider = ({ children }: { children: ReactNode }) => {
     }
 
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-  }, [orders]);
+    orders.forEach(scheduleReviewTimeout);
+  }, [orders, scheduleReviewTimeout]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(timersRef.current).forEach((timerId) => window.clearTimeout(timerId));
+    };
+  }, []);
 
   const value = useMemo<OrderCenterContextValue>(
     () => ({

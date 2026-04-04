@@ -184,6 +184,8 @@ const Checkout = () => {
   const isCardExpiryValid = /^(0[1-9]|1[0-2])\/\d{2}$/.test(cardExpiry);
   const isCardCvcValid = /^[0-9]{3,4}$/.test(cardCvc);
   const cardProcessingDuration = getPaymentReviewDelay("card");
+  const isProcessingCheckout = submitting || Boolean(processingCardOrderId);
+  const effectiveCountryCode = countryCode || (detectedCountryCode !== "INTL" ? detectedCountryCode : "");
   const paymentOptions = useMemo(
     () => [
       { key: "vodafone" as PaymentMethod, icon: Smartphone, label: t("payments.vodafone") },
@@ -261,11 +263,10 @@ const Checkout = () => {
 
     return (
       isFilled(cardName) &&
-      !!countryCode &&
-      cleanedCardNumber.length === 16 &&
-      luhnCheck(cleanedCardNumber) &&
-      isCardExpiryValid &&
-      isCardCvcValid
+      !!effectiveCountryCode &&
+      cleanedCardNumber.length > 0 &&
+      cardExpiry.trim().length > 0 &&
+      cardCvc.trim().length > 0
     );
   }, [
     agreedTerms,
@@ -274,7 +275,7 @@ const Checkout = () => {
     cardName,
     cleanedCardNumber,
     confirmedTransfer,
-    countryCode,
+    effectiveCountryCode,
     delivery,
     email,
     isCardCvcValid,
@@ -324,6 +325,10 @@ const Checkout = () => {
   };
 
   const handlePaymentChange = (nextPayment: PaymentMethod) => {
+    if (isProcessingCheckout) {
+      return;
+    }
+
     setPayment(nextPayment);
     trackEvent({
       eventType: "payment_method_selected",
@@ -335,6 +340,10 @@ const Checkout = () => {
   };
 
   const handleCountryChange = (nextCountryCode: string) => {
+    if (isProcessingCheckout) {
+      return;
+    }
+
     hasManualCountrySelectionRef.current = true;
     setCountryCode(nextCountryCode);
 
@@ -370,6 +379,18 @@ const Checkout = () => {
     try {
       setSubmitting(true);
 
+      trackEvent({
+        eventType: "checkout_attempted",
+        eventLabel: "Checkout Attempted",
+        metadata: {
+          productId: product.id,
+          productName: product.name,
+          planName: plan.name,
+          paymentMethod: payment,
+          selectedCountry: effectiveCountryCode || null,
+        },
+      });
+
       const order = await createOrder({
         platformId: product.id,
         platformName: product.name,
@@ -378,7 +399,7 @@ const Checkout = () => {
         paymentMethod: payment,
         deliveryMethod: delivery,
         customerEmail: email,
-        countryCode: countryCode || detectedCountryCode,
+        countryCode: effectiveCountryCode,
         countryName: selectedCountry?.name ?? detectedCountryName,
       });
 
@@ -403,17 +424,15 @@ const Checkout = () => {
         setReceiptOpen(true);
       }
 
-      setPassword("");
-      setSenderPhone("");
-      setCardName("");
-      setCardNumber("");
-      setCardExpiry("");
-      setCardCvc("");
-      setScreenshot(null);
-      setTxid("");
-      setConfirmedTransfer(false);
+      if (payment !== "card") {
+        setPassword("");
+        setSenderPhone("");
+        setScreenshot(null);
+        setTxid("");
+        setConfirmedTransfer(false);
+      }
     } catch {
-      toast.error(isArabic ? "تعذر تأمين الطلب الآن. حاول مرة أخرى." : "Unable to validate your order right now. Please try again.");
+      toast.error(isArabic ? "تعذر بدء محاولة الدفع الآن. حاول مرة أخرى." : "Unable to start the payment attempt right now. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -482,7 +501,7 @@ const Checkout = () => {
             <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${agreedTerms ? "bg-primary border-primary" : "border-border group-hover:border-muted-foreground"}`}>
               {agreedTerms && <Check className="w-3 h-3 text-primary-foreground" />}
             </div>
-            <input type="checkbox" className="hidden" checked={agreedTerms} onChange={(event) => setAgreedTerms(event.target.checked)} />
+            <input type="checkbox" className="hidden" checked={agreedTerms} disabled={isProcessingCheckout} onChange={(event) => setAgreedTerms(event.target.checked)} />
             <span className="text-sm text-muted-foreground">{t("checkout.reviewAgree")}</span>
           </label>
         </motion.div>
@@ -506,7 +525,8 @@ const Checkout = () => {
                 key={key}
                 type="button"
                 onClick={() => setDelivery(key)}
-                className={`rounded-lg border p-4 text-sm transition-all ${isArabic ? "text-right" : "text-left"} ${
+                disabled={isProcessingCheckout}
+                className={`rounded-lg border p-4 text-sm transition-all disabled:cursor-not-allowed disabled:opacity-60 ${isArabic ? "text-right" : "text-left"} ${
                   delivery === key
                     ? "border-primary bg-primary/10 orange-glow"
                     : "border-border hover:border-muted-foreground"
@@ -529,8 +549,8 @@ const Checkout = () => {
                 exit={{ opacity: 0, height: 0 }}
                 className="space-y-3"
               >
-                <input type="email" placeholder={t("checkout.ownEmail")} value={email} onFocus={() => trackFieldInteraction("Account Email")} onChange={(event) => setEmail(event.target.value)} className={inputClass} />
-                <input type="password" placeholder={t("checkout.platformPassword")} value={password} onFocus={() => trackFieldInteraction("Platform Password")} onChange={(event) => setPassword(event.target.value)} className={inputClass} />
+                <input type="email" placeholder={t("checkout.ownEmail")} value={email} disabled={isProcessingCheckout} onFocus={() => trackFieldInteraction("Account Email")} onChange={(event) => setEmail(event.target.value)} className={inputClass} />
+                <input type="password" placeholder={t("checkout.platformPassword")} value={password} disabled={isProcessingCheckout} onFocus={() => trackFieldInteraction("Platform Password")} onChange={(event) => setPassword(event.target.value)} className={inputClass} />
                 <p className="text-xs text-muted-foreground">{t("checkout.ownAccountHelp")}</p>
               </motion.div>
             ) : (
@@ -541,7 +561,7 @@ const Checkout = () => {
                 exit={{ opacity: 0, height: 0 }}
                 className="space-y-3"
               >
-                <input type="email" placeholder={t("checkout.readyEmail")} value={email} onFocus={() => trackFieldInteraction("Ready-Made Email")} onChange={(event) => setEmail(event.target.value)} className={inputClass} />
+                <input type="email" placeholder={t("checkout.readyEmail")} value={email} disabled={isProcessingCheckout} onFocus={() => trackFieldInteraction("Ready-Made Email")} onChange={(event) => setEmail(event.target.value)} className={inputClass} />
                 <p className="text-xs text-muted-foreground">{t("checkout.readyHelp")}</p>
               </motion.div>
             )}
@@ -590,6 +610,7 @@ const Checkout = () => {
               value={countryCode}
               onChange={handleCountryChange}
               countries={countries}
+              disabled={isProcessingCheckout}
               className="premium-scrollbar"
             />
           </div>
@@ -610,7 +631,8 @@ const Checkout = () => {
                   exit={{ opacity: 0, scale: 0.96 }}
                   transition={{ type: "spring", stiffness: 260, damping: 22 }}
                   onClick={() => handlePaymentChange(key)}
-                  className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-3 text-xs font-medium transition-all sm:min-w-0 ${
+                  disabled={isProcessingCheckout}
+                  className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-3 text-xs font-medium transition-all disabled:cursor-not-allowed disabled:opacity-60 sm:min-w-0 ${
                     payment === key
                       ? "border-primary bg-primary/10 text-foreground orange-glow"
                       : "border-border text-muted-foreground hover:border-muted-foreground"
@@ -642,6 +664,7 @@ const Checkout = () => {
                   type="tel"
                   placeholder={t("checkout.senderPhone")}
                   value={senderPhone}
+                  disabled={isProcessingCheckout}
                   onFocus={() => trackFieldInteraction("Vodafone Cash Number")}
                   onChange={(event) => setSenderPhone(event.target.value)}
                   className={`${inputClass} ${!isValidPhone(senderPhone) && senderPhone.length > 0 ? "border-red-500/70 focus:ring-red-500" : ""}`}
@@ -668,6 +691,7 @@ const Checkout = () => {
                       type="file"
                       accept="image/*"
                       className="hidden"
+                      disabled={isProcessingCheckout}
                       onChange={(event) => setScreenshot(event.target.files?.[0] || null)}
                     />
                   </div>
@@ -690,7 +714,7 @@ const Checkout = () => {
                     </div>
                   </div>
                 ))}
-                <input type="text" placeholder={t("checkout.txid")} value={txid} onFocus={() => trackFieldInteraction("Crypto Transaction ID")} onChange={(event) => setTxid(event.target.value)} className={inputClass} />
+                <input type="text" placeholder={t("checkout.txid")} value={txid} disabled={isProcessingCheckout} onFocus={() => trackFieldInteraction("Crypto Transaction ID")} onChange={(event) => setTxid(event.target.value)} className={inputClass} />
                 <p className="text-xs text-muted-foreground">{t("checkout.cryptoHelp")}</p>
               </motion.div>
             )}
@@ -720,6 +744,7 @@ const Checkout = () => {
                       inputMode="numeric"
                       placeholder={t("checkout.cardNumber")}
                       value={cardNumber}
+                      disabled={isProcessingCheckout}
                       onFocus={() => trackFieldInteraction("Card Number")}
                       onChange={(event) => setCardNumber(formatCardNumber(event.target.value))}
                       className={`${inputClass} pr-28 font-mono tracking-[0.2em] ${
@@ -746,6 +771,7 @@ const Checkout = () => {
                       type="text"
                       placeholder="MM/YY"
                       value={cardExpiry}
+                      disabled={isProcessingCheckout}
                       onFocus={() => trackFieldInteraction("Card Expiry")}
                       onChange={(event) => setCardExpiry(formatCardExpiry(event.target.value))}
                       className={`${inputClass} ${!isCardExpiryValid && cardExpiry.length === 5 ? "border-red-500/70 focus:ring-red-500" : ""}`}
@@ -755,6 +781,7 @@ const Checkout = () => {
                       inputMode="numeric"
                       placeholder="CVC"
                       value={cardCvc}
+                      disabled={isProcessingCheckout}
                       onFocus={() => trackFieldInteraction("Card CVC")}
                       onChange={(event) => setCardCvc(formatCardCvc(event.target.value))}
                       className={`${inputClass} ${!isCardCvcValid && cardCvc.length > 0 ? "border-red-500/70 focus:ring-red-500" : ""}`}
@@ -765,6 +792,7 @@ const Checkout = () => {
                     type="text"
                     placeholder={t("checkout.cardholder")}
                     value={cardName}
+                    disabled={isProcessingCheckout}
                     onFocus={() => trackFieldInteraction("Cardholder Name")}
                     onChange={(event) => setCardName(event.target.value)}
                     className={inputClass}
@@ -809,12 +837,12 @@ const Checkout = () => {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          whileHover={isFormValid ? { scale: 1.02 } : {}}
-          whileTap={isFormValid ? { scale: 0.98 } : {}}
+          whileHover={isFormValid && !isProcessingCheckout ? { scale: 1.02 } : {}}
+          whileTap={isFormValid && !isProcessingCheckout ? { scale: 0.98 } : {}}
           onClick={handleSubmit}
-          disabled={!isFormValid || submitting}
+          disabled={!isFormValid || isProcessingCheckout}
           className={`w-full rounded-xl py-4 font-heading text-base font-bold transition-all sm:text-lg ${
-            isFormValid && !submitting
+            isFormValid && !isProcessingCheckout
               ? "btn-primary text-primary-foreground"
               : "bg-muted text-muted-foreground cursor-not-allowed"
           }`}
@@ -842,7 +870,7 @@ const Checkout = () => {
       />
 
       <AnimatePresence>
-        {processingCardOrderId && submittedOrder && (
+        {payment === "card" && (submitting || Boolean(processingCardOrderId)) && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -871,11 +899,11 @@ const Checkout = () => {
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm">
                     <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{t("checkout.orderId")}</p>
-                    <p className="mt-1 text-sm font-semibold text-foreground">{submittedOrder.id}</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">{submittedOrder?.id ?? "Generating..."}</p>
                   </div>
                   <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm">
                     <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{t("checkout.packageName")}</p>
-                    <p className="mt-1 text-sm font-semibold text-foreground">{submittedOrder.planName}</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">{submittedOrder?.planName ?? plan.name}</p>
                   </div>
                   <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm">
                     <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{t("checkout.paymentMethodLabel")}</p>

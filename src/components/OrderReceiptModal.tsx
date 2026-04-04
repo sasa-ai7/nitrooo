@@ -3,6 +3,7 @@ import { ArrowRight, Copy, Printer, Receipt, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { useLanguage } from "@/context/LanguageContext";
+import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import {
   ORDER_SUPPORT_URL,
   getPaymentMethodLabel,
@@ -18,6 +19,8 @@ interface OrderReceiptModalProps {
 
 const OrderReceiptModal = ({ order, open, onClose, onViewDetails }: OrderReceiptModalProps) => {
   const { t } = useLanguage();
+
+  useBodyScrollLock(open);
 
   const handleCopy = async () => {
     if (!order) return;
@@ -45,7 +48,7 @@ const OrderReceiptModal = ({ order, open, onClose, onViewDetails }: OrderReceipt
             exit={{ opacity: 0, y: 24, scale: 0.96 }}
             transition={{ type: "spring", damping: 24, stiffness: 280 }}
             onClick={(event) => event.stopPropagation()}
-            className="max-h-[90svh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-primary/20 bg-card text-left shadow-[0_30px_80px_rgba(0,0,0,0.45)]"
+            className="premium-scrollbar max-h-[90svh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-3xl border border-primary/20 bg-card text-left shadow-[0_30px_80px_rgba(0,0,0,0.45)]"
           >
             <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6">
               <div className="flex items-center gap-3">

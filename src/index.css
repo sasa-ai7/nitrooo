@@ -58,7 +58,6 @@
   html {
     scroll-behavior: smooth;
     overflow-x: hidden;
-    scrollbar-gutter: stable;
     scrollbar-width: thin;
     scrollbar-color: hsl(25 95% 53% / 0.52) hsl(0 0% 7% / 0.95);
   }

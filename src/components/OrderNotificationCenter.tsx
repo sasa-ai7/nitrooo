@@ -4,6 +4,7 @@ import { Bell, Copy, ExternalLink, LifeBuoy } from "lucide-react";
 import { toast } from "sonner";
 
 import { useLanguage } from "@/context/LanguageContext";
+import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import {
   ORDER_SUPPORT_URL,
   formatOrderDate,
@@ -31,6 +32,8 @@ const OrderNotificationCenter = () => {
   const [open, setOpen] = useState(false);
   const { orders, unreadCount, markAllAsRead, markAsRead } = useOrderCenter();
   const alignClass = language === "ar" ? "text-right" : "text-left";
+
+  useBodyScrollLock(open);
 
   useEffect(() => {
     if (open && unreadCount > 0) {
@@ -104,7 +107,7 @@ const OrderNotificationCenter = () => {
               </div>
             </div>
 
-            <div className="premium-scrollbar max-h-[min(70svh,26rem)] overflow-y-auto p-3 sm:p-4">
+            <div className="premium-scrollbar max-h-[min(65svh,24rem)] overflow-y-auto overscroll-contain p-3 sm:p-4">
               {orders.length === 0 ? (
                 <div className={`rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-8 ${alignClass}`}>
                   <p className="text-sm font-medium text-foreground">{t("header.noNotifications")}</p>
