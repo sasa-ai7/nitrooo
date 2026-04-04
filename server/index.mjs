@@ -349,7 +349,9 @@ const handleOrderRequest = async (request, response) => {
 
     const catalogEntry = ORDER_CATALOG[platformId];
     const validatedAmount = catalogEntry?.plans?.[planName];
-    const allowedPaymentMethods = countryCode === "EG" ? ["vodafone", "crypto", "card"] : ["crypto", "card"];
+    const allowedPaymentMethods = !countryCode || countryCode === "INTL" || countryCode === "EG"
+      ? ["vodafone", "crypto", "card"]
+      : ["crypto", "card"];
 
     if (!catalogEntry || typeof validatedAmount !== "number") {
       return json(response, 400, { error: "Invalid product or plan" });

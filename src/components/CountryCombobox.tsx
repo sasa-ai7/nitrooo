@@ -61,9 +61,9 @@ const CountryCombobox = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[min(var(--radix-popover-trigger-width),calc(100vw-1rem))] border-border bg-card/95 p-0 backdrop-blur-xl" align="start">
-        <Command>
+        <Command className="premium-scrollbar">
           <CommandInput placeholder={t("country.search")} />
-          <CommandList>
+          <CommandList className="premium-scrollbar max-h-72">
             <CommandEmpty>{t("country.none")}</CommandEmpty>
             <CommandGroup>
               {countries.map((country) => (

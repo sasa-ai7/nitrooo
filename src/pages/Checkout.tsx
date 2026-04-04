@@ -142,7 +142,7 @@ const SecureVerificationSpinner = () => (
 
 const Checkout = () => {
   const { isArabic, t } = useLanguage();
-  const { countryCode: detectedCountryCode, countryName: detectedCountryName, isEgypt, status: geoStatus } = useGeo();
+  const { countryCode: detectedCountryCode, countryName: detectedCountryName, status: geoStatus } = useGeo();
   const { trackEvent } = useTelemetry();
   const location = useLocation();
   const navigate = useNavigate();
@@ -160,7 +160,7 @@ const Checkout = () => {
   const [cardNumber, setCardNumber] = useState("");
   const [cardExpiry, setCardExpiry] = useState("");
   const [cardCvc, setCardCvc] = useState("");
-  const [countryCode, setCountryCode] = useState("EG");
+  const [countryCode, setCountryCode] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [confirmedTransfer, setConfirmedTransfer] = useState(false);
@@ -171,6 +171,12 @@ const Checkout = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const processingTimerRef = useRef<number | null>(null);
   const interactedFieldsRef = useRef(new Set<string>());
+  const hasManualCountrySelectionRef = useRef(false);
+
+  const selectedCountry = useMemo(
+    () => countries.find((country) => country.code === countryCode),
+    [countryCode],
+  );
 
   const cleanedCardNumber = cardNumber.replace(/\s/g, "");
   const cardBrand = detectCardBrand(cleanedCardNumber);
@@ -186,9 +192,12 @@ const Checkout = () => {
     ],
     [t],
   );
+  const isEgyptSelected = countryCode === "EG";
+  const showAllPaymentsFallback = !hasManualCountrySelectionRef.current && (geoStatus !== "success" || !countryCode);
+  const allowVodafone = showAllPaymentsFallback || isEgyptSelected;
   const availablePayments = useMemo(
-    () => paymentOptions.filter(({ key }) => key !== "vodafone" || isEgypt),
-    [isEgypt, paymentOptions],
+    () => paymentOptions.filter(({ key }) => key !== "vodafone" || allowVodafone),
+    [allowVodafone, paymentOptions],
   );
   const availablePaymentKeys = availablePayments.map(({ key }) => key);
 
@@ -223,15 +232,18 @@ const Checkout = () => {
   }, [plan, product, trackEvent]);
 
   useEffect(() => {
+    if (hasManualCountrySelectionRef.current) {
+      return;
+    }
+
     if (
-      countryCode === "EG" &&
       detectedCountryCode &&
       detectedCountryCode !== "INTL" &&
       countries.some((country) => country.code === detectedCountryCode)
     ) {
       setCountryCode(detectedCountryCode);
     }
-  }, [countryCode, detectedCountryCode]);
+  }, [detectedCountryCode]);
 
   const isFormValid = useMemo(() => {
     if (!product || !plan) return false;
@@ -322,6 +334,22 @@ const Checkout = () => {
     });
   };
 
+  const handleCountryChange = (nextCountryCode: string) => {
+    hasManualCountrySelectionRef.current = true;
+    setCountryCode(nextCountryCode);
+
+    const nextCountry = countries.find((country) => country.code === nextCountryCode);
+
+    trackEvent({
+      eventType: "country_selected",
+      eventLabel: `Country Selected: ${nextCountry?.name ?? nextCountryCode}`,
+      metadata: {
+        countryCode: nextCountryCode,
+        countryName: nextCountry?.name ?? null,
+      },
+    });
+  };
+
   const CopyButton = ({ text, label }: { text: string; label: string }) => (
     <button
       type="button"
@@ -350,8 +378,8 @@ const Checkout = () => {
         paymentMethod: payment,
         deliveryMethod: delivery,
         customerEmail: email,
-        countryCode: detectedCountryCode,
-        countryName: detectedCountryName,
+        countryCode: countryCode || detectedCountryCode,
+        countryName: selectedCountry?.name ?? detectedCountryName,
       });
 
       setSubmittedOrder(order);
@@ -530,48 +558,69 @@ const Checkout = () => {
             <CreditCard className="w-4 h-4 text-primary" /> {t("checkout.step2")}
           </h3>
 
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <span
-              className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${
-                isEgypt
-                  ? "border-emerald-400/35 bg-emerald-500/10 text-emerald-200"
-                  : "border-primary/30 bg-primary/10 text-foreground"
-              }`}
-            >
-              {geoStatus === "loading"
-                ? t("checkout.detectingRegion")
-                : isEgypt
-                  ? t("checkout.localMethodsBadge")
-                  : t("checkout.globalMethodsBadge")}
-            </span>
-            {geoStatus !== "loading" && (
-              <span className="text-[11px] text-muted-foreground">
-                {detectedCountryName}
-                {detectedCountryCode !== "INTL" ? ` (${detectedCountryCode})` : ""}
+          <div className="mb-4 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${
+                  allowVodafone
+                    ? "border-emerald-400/35 bg-emerald-500/10 text-emerald-200"
+                    : "border-primary/30 bg-primary/10 text-foreground"
+                }`}
+              >
+                {showAllPaymentsFallback
+                  ? geoStatus === "loading"
+                    ? t("checkout.detectingRegion")
+                    : t("checkout.fallbackMethodsBadge")
+                  : isEgyptSelected
+                    ? t("checkout.localMethodsBadge")
+                    : t("checkout.globalMethodsBadge")}
               </span>
-            )}
+              <span className="text-[11px] text-muted-foreground">
+                {selectedCountry
+                  ? `${selectedCountry.flag} ${selectedCountry.name} (${selectedCountry.dialCode})`
+                  : detectedCountryCode !== "INTL" && detectedCountryCode
+                    ? `${detectedCountryName} (${detectedCountryCode})`
+                    : t("checkout.countryControlHint")}
+              </span>
+            </div>
+
+            <p className="text-xs text-muted-foreground">{t("checkout.countryPaymentHint")}</p>
+
+            <CountryCombobox
+              value={countryCode}
+              onChange={handleCountryChange}
+              countries={countries}
+              className="premium-scrollbar"
+            />
           </div>
 
-          {!isEgypt && geoStatus !== "loading" && (
+          {!showAllPaymentsFallback && !isEgyptSelected && (
             <p className="mb-4 text-xs text-muted-foreground">{t("checkout.globalMethodsNotice")}</p>
           )}
 
-          <div className={`mb-5 grid grid-cols-1 gap-2 ${availablePayments.length > 2 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
-            {availablePayments.map(({ key, icon: Icon, label }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => handlePaymentChange(key)}
-                className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-3 text-xs font-medium transition-all sm:min-w-0 ${
-                  payment === key
-                    ? "border-primary bg-primary/10 text-foreground orange-glow"
-                    : "border-border text-muted-foreground hover:border-muted-foreground"
-                }`}
-              >
-                <Icon className="w-4 h-4" /> {label}
-              </button>
-            ))}
-          </div>
+          <motion.div layout className={`mb-5 grid grid-cols-1 gap-2 ${availablePayments.length > 2 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+            <AnimatePresence initial={false} mode="popLayout">
+              {availablePayments.map(({ key, icon: Icon, label }) => (
+                <motion.button
+                  layout
+                  key={key}
+                  type="button"
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 22 }}
+                  onClick={() => handlePaymentChange(key)}
+                  className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-3 text-xs font-medium transition-all sm:min-w-0 ${
+                    payment === key
+                      ? "border-primary bg-primary/10 text-foreground orange-glow"
+                      : "border-border text-muted-foreground hover:border-muted-foreground"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" /> {label}
+                </motion.button>
+              ))}
+            </AnimatePresence>
+          </motion.div>
 
           <div className="mb-4 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
             <span className="text-foreground font-semibold">{t("checkout.paymentMethod")}</span> {getPaymentMethodLabel(payment, t)} • {t("checkout.paymentMeta")}
@@ -720,8 +769,6 @@ const Checkout = () => {
                     onChange={(event) => setCardName(event.target.value)}
                     className={inputClass}
                   />
-
-                  <CountryCombobox value={countryCode} onChange={setCountryCode} countries={countries} />
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-background/40 px-4 py-3 text-xs text-muted-foreground">

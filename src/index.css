@@ -58,6 +58,48 @@
   html {
     scroll-behavior: smooth;
     overflow-x: hidden;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(25 95% 53% / 0.52) hsl(0 0% 7% / 0.95);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(25 95% 53% / 0.52) hsl(0 0% 7% / 0.95);
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: hsl(0 0% 7% / 0.95);
+    border-radius: 9999px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background: linear-gradient(
+      180deg,
+      hsl(25 95% 53% / 0.58),
+      hsl(25 95% 53% / 0.26)
+    );
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(
+      180deg,
+      hsl(25 95% 53% / 0.72),
+      hsl(25 95% 53% / 0.34)
+    );
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: hsl(0 0% 7% / 0.95);
   }
 
   body,
@@ -219,31 +261,36 @@
 
   .premium-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: hsl(25 95% 53% / 0.42) transparent;
+    scrollbar-color: hsl(25 95% 53% / 0.52) hsl(0 0% 7% / 0.95);
   }
 
   .premium-scrollbar::-webkit-scrollbar {
-    width: 6px;
+    width: 8px;
+    height: 8px;
   }
 
   .premium-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
+    background: hsl(0 0% 7% / 0.95);
+    border-radius: 9999px;
   }
 
   .premium-scrollbar::-webkit-scrollbar-thumb {
     border-radius: 9999px;
+    border: 2px solid transparent;
     background: linear-gradient(
       180deg,
-      hsl(25 95% 53% / 0.55),
-      hsl(25 95% 53% / 0.2)
+      hsl(25 95% 53% / 0.58),
+      hsl(25 95% 53% / 0.26)
     );
+    background-clip: padding-box;
   }
 
   .premium-scrollbar::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(
       180deg,
-      hsl(25 95% 53% / 0.7),
-      hsl(25 95% 53% / 0.28)
+      hsl(25 95% 53% / 0.72),
+      hsl(25 95% 53% / 0.34)
     );
+    background-clip: padding-box;
   }
 }
