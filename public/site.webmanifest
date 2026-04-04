@@ -1,0 +1,17 @@
+{
+  "name": "NITRO X",
+  "short_name": "Nitro X",
+  "description": "Premium AI subscriptions at 50% off.",
+  "theme_color": "#0a0b10",
+  "background_color": "#0a0b10",
+  "display": "standalone",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/favicon.svg?v=20260404",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="64" y1="48" x2="448" y2="464" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#121318"/>
+      <stop offset="1" stop-color="#05060A"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="96" y1="80" x2="420" y2="430" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF8A1E"/>
+      <stop offset="1" stop-color="#F04F2B"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="150" y1="102" x2="255" y2="334" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFB347"/>
+      <stop offset="1" stop-color="#FF6A00"/>
+    </linearGradient>
+    <linearGradient id="xgrad" x1="288" y1="164" x2="410" y2="352" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF8359"/>
+      <stop offset="1" stop-color="#D93A2F"/>
+    </linearGradient>
+    <filter id="glow" x="0" y="0" width="512" height="512" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0  0 0.52 0 0 0  0 0 0 0 0  0 0 0 0.26 0"/>
+      <feBlend in="SourceGraphic" mode="screen"/>
+    </filter>
+  </defs>
+
+  <rect x="28" y="28" width="456" height="456" rx="124" fill="url(#bg)"/>
+  <rect x="28" y="28" width="456" height="456" rx="124" stroke="url(#ring)" stroke-width="18"/>
+
+  <g filter="url(#glow)">
+    <path d="M184 94L114 252H207L176 410L324 210H236L286 94H184Z" fill="url(#bolt)"/>
+    <path d="M307 168L354 224L401 168L432 198L380 256L432 314L401 344L354 288L307 344L276 314L328 256L276 198L307 168Z" fill="url(#xgrad)"/>
+  </g>
+</svg>

@@ -1,0 +1,209 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 4%;
+    --foreground: 0 0% 95%;
+
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 25 95% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 25 95% 53%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 45%;
+
+    --accent: 25 95% 53%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 14%;
+    --input: 0 0% 14%;
+    --ring: 25 95% 53%;
+
+    --radius: 0.75rem;
+
+    --glass-bg: 0 0% 8%;
+    --glass-border: 0 0% 18%;
+
+    --sidebar-background: 0 0% 7%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 25 95% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 25 95% 53%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 14%;
+    --sidebar-ring: 25 95% 53%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+  }
+
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased overflow-x-hidden;
+    text-wrap: pretty;
+  }
+
+  img,
+  svg,
+  video,
+  canvas {
+    max-width: 100%;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-card/40 backdrop-blur-xl border border-glass-border rounded-xl;
+  }
+
+  .glass-strong {
+    @apply bg-card/60 backdrop-blur-2xl border border-glass-border rounded-xl;
+  }
+
+  .orange-glow {
+    box-shadow: 0 0 20px hsl(25 95% 53% / 0.25),
+                0 0 60px hsl(25 95% 53% / 0.08);
+  }
+
+  .orange-glow-strong {
+    box-shadow: 0 0 30px hsl(25 95% 53% / 0.35),
+                0 0 80px hsl(25 95% 53% / 0.12);
+  }
+
+  .orange-text-glow {
+    text-shadow: 0 0 10px hsl(25 95% 53% / 0.5),
+                 0 0 40px hsl(25 95% 53% / 0.2);
+  }
+
+  .gradient-border {
+    background: linear-gradient(hsl(var(--card)), hsl(var(--card))) padding-box,
+                linear-gradient(135deg, hsl(25 95% 53% / 0.6), hsl(25 95% 53% / 0.1)) border-box;
+    border: 1px solid transparent;
+  }
+
+  .btn-primary {
+    @apply relative overflow-hidden font-heading font-semibold tracking-wide;
+    background: linear-gradient(135deg, hsl(25 95% 53%), hsl(30 100% 45%));
+    transition: all 0.3s ease;
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.4;
+    transform: none;
+    box-shadow: none;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .btn-primary:hover {
+      box-shadow: 0 0 25px hsl(25 95% 53% / 0.5),
+                  0 0 50px hsl(25 95% 53% / 0.2);
+      transform: translateY(-2px);
+    }
+  }
+
+  .promo-marquee {
+    @apply relative overflow-hidden border border-primary/25 bg-card/70 backdrop-blur-xl;
+  }
+
+  .promo-marquee::before,
+  .promo-marquee::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 48px;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .promo-marquee::before {
+    left: 0;
+    background: linear-gradient(90deg, hsl(var(--card)) 0%, transparent 100%);
+  }
+
+  .promo-marquee::after {
+    right: 0;
+    background: linear-gradient(270deg, hsl(var(--card)) 0%, transparent 100%);
+  }
+
+  .promo-track {
+    display: flex;
+    align-items: center;
+    width: max-content;
+    min-width: max-content;
+    animation: promo-marquee-scroll 22s linear infinite;
+    will-change: transform;
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .promo-marquee:hover .promo-track {
+      animation-duration: 30s;
+    }
+  }
+}
+
+@media (max-width: 640px) {
+  .promo-track {
+    animation-duration: 18s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .promo-track {
+    animation: none;
+    min-width: 100%;
+  }
+}
+
+@keyframes promo-marquee-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(-33.3333%, 0, 0);
+  }
+}
+
+@layer utilities {
+  .font-heading {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+
+  .font-body {
+    font-family: 'Inter', sans-serif;
+  }
+}
