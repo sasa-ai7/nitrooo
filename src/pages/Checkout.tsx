@@ -654,8 +654,8 @@ const Checkout = () => {
                 <div className="glass rounded-lg p-4 text-sm">
                   <p className="mb-2 text-foreground">{t("checkout.transferUsd")}</p>
                   <div className="flex items-center gap-2">
-                    <span className="font-heading text-lg font-bold text-primary">01004067162</span>
-                    <CopyButton text="01004067162" label="vodafone" />
+                    <span className="font-heading text-lg font-bold text-primary">01116362107</span>
+                    <CopyButton text="01116362107" label="vodafone" />
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">{t("checkout.screenshotHelp")}</p>
                 </div>
