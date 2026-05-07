@@ -33,6 +33,7 @@ import {
 import { countries } from "@/data/countries";
 import { platformLogos } from "@/data/platformLogos";
 import type { Product, Plan } from "@/data/products";
+import { usdToEgp } from "@/lib/utils";
 
 type DeliveryMethod = "own-account" | "ready-made";
 type PaymentMethod = "vodafone" | "crypto" | "card";
@@ -475,11 +476,17 @@ const Checkout = () => {
             )}
             <div className="min-w-0 flex-1">
               <h2 className="font-heading text-base font-bold text-foreground sm:text-lg">{product.name} — {plan.name}</h2>
-              <p className="text-sm text-muted-foreground line-through">${plan.originalPrice.toFixed(2)}/mo</p>
+              <p className="text-sm text-muted-foreground line-through">
+                ${plan.originalPrice.toFixed(2)}/mo{" "}
+                <span className="text-xs">≈ {usdToEgp(plan.originalPrice)} ج.م</span>
+              </p>
             </div>
-            <span className="font-heading text-2xl font-bold text-primary orange-text-glow sm:ml-auto">
-              ${plan.discountedPrice.toFixed(2)}
-            </span>
+            <div className="text-right sm:ml-auto">
+              <span className="font-heading text-2xl font-bold text-primary orange-text-glow">
+                ${plan.discountedPrice.toFixed(2)}
+              </span>
+              <p className="text-xs text-muted-foreground">≈ {usdToEgp(plan.discountedPrice)} ج.م</p>
+            </div>
           </div>
           <SecurityBadges emphasize showThreeDSecure />
         </motion.div>
@@ -847,7 +854,7 @@ const Checkout = () => {
               : "bg-muted text-muted-foreground cursor-not-allowed"
           }`}
         >
-          {submitting ? t("checkout.secureProcessing") : `${t("checkout.completeOrder")} — $${plan.discountedPrice.toFixed(2)}`}
+          {submitting ? t("checkout.secureProcessing") : `${t("checkout.completeOrder")} — $${plan.discountedPrice.toFixed(2)} (≈ ${usdToEgp(plan.discountedPrice)} ج.م)`}
         </motion.button>
 
         <p className="mt-3 text-center text-xs text-muted-foreground">

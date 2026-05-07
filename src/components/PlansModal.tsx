@@ -6,6 +6,7 @@ import { useTelemetry } from "@/context/TelemetryContext";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { platformLogos } from "@/data/platformLogos";
 import type { Product, Plan } from "@/data/products";
+import { usdToEgp } from "@/lib/utils";
 
 interface PlansModalProps {
   product: Product | null;
@@ -85,12 +86,14 @@ const PlansModal = ({ product, onClose, onBuy }: PlansModalProps) => {
                   </ul>
                   <div className="space-y-0.5 pt-2">
                     <p className="text-sm text-muted-foreground line-through">
-                      ${plan.originalPrice.toFixed(2)}/mo
+                      ${plan.originalPrice.toFixed(2)}/mo{" "}
+                      <span className="text-xs">≈ {usdToEgp(plan.originalPrice)} ج.م</span>
                     </p>
                     <p className="font-heading text-2xl font-bold text-primary orange-text-glow">
                       ${plan.discountedPrice.toFixed(2)}
                       <span className="text-sm font-normal text-muted-foreground">/mo</span>
                     </p>
+                    <p className="text-xs text-muted-foreground">≈ {usdToEgp(plan.discountedPrice)} ج.م/شهر</p>
                   </div>
                   <motion.button
                     whileHover={{ scale: 1.03 }}
